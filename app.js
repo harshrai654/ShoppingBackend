@@ -3,6 +3,7 @@ const express = require("express");
 const path = require("path");
 const cookieParser = require("cookie-parser");
 const indexRouter = require("./routes/index");
+const authRouter = require("./routes/auth");
 const app = express();
 const port = process.env.PORT || 3001;
 const client = require("./initDB");
@@ -25,6 +26,7 @@ app.use(express.static(path.join(__dirname, "public")));
 
 //Routes
 app.use("/", indexRouter);
+app.use("/auth", authRouter);
 
 //Server start
 app.listen(port, () => {
