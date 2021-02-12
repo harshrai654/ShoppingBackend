@@ -3,7 +3,19 @@ const router = express.Router();
 const client = require("../initDB");
 const jwt = require("jsonwebtoken");
 
-/* GET home page. */
+router.post("/", (req, res) => {
+  const { token } = req.body;
+
+  jwt.verify(token, process.env.SECRET, (err, decoded) => {
+    if (err) {
+      res.sendStatus(403);
+      console.log("Invalid user");
+    } else {
+      res.json(decoded);
+    }
+  });
+});
+
 router.post("/login", function (req, res) {
   const { email, pass } = req.body;
 

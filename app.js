@@ -4,6 +4,7 @@ const path = require("path");
 const cookieParser = require("cookie-parser");
 const indexRouter = require("./routes/index");
 const authRouter = require("./routes/auth");
+const sellerRouter = require("./routes/seller");
 const app = express();
 const port = process.env.PORT || 3001;
 const client = require("./initDB");
@@ -27,6 +28,7 @@ app.use(express.static(path.join(__dirname, "public")));
 //Routes
 app.use("/", indexRouter);
 app.use("/auth", authRouter);
+app.use("/seller", sellerRouter);
 
 //Server start
 app.listen(port, () => {
