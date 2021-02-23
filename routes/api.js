@@ -14,6 +14,7 @@ router.get("/products", function (req, res) {
       //   console.log(products);
       if (products.length) {
         res.json(products);
+        console.log("Products sent!");
       } else {
         res.json([]);
       }

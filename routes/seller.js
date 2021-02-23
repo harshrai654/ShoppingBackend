@@ -19,6 +19,7 @@ const createProductData = (productData, sellerData, urls) => {
     pname: productData.pname,
     desc: productData.desc,
     price: parseFloat(productData.price),
+    quantity: parseInt(productData.quantity),
     sellerId: sellerData._id,
     imgUrls: urls,
   };
