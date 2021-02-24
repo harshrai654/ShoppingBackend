@@ -13,12 +13,12 @@ const utils = {
 
     let prvsCartProData = await productCollection
       .find({ _id: { $in: prvsCartIds } })
-      .project({ pname: 1, quantity: 1, price: 1, imgUrls: 1 })
+      .project({ pname: 1, quantity: 1, price: 1, imgUrls: 1, sellerId: 1 })
       .toArray();
 
     let newCartProData = await productCollection
       .find({ _id: { $in: newCartIds } })
-      .project({ pname: 1, quantity: 1, price: 1, imgUrls: 1 })
+      .project({ pname: 1, quantity: 1, price: 1, imgUrls: 1, sellerId: 1 })
       .toArray();
 
     let mergedCart = prvsCartProData;

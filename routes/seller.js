@@ -6,6 +6,8 @@ const multer = require("multer");
 const upload = multer();
 const client = require("../initDB");
 const { Storage } = require("@google-cloud/storage");
+const { ObjectId } = require("mongodb");
+const { send } = require("process");
 
 const gc = new Storage({
   keyFilename: path.join(__dirname, "../shopping-304613-5ced82ccf1fd.json"),
@@ -94,6 +96,62 @@ router.post("/product", verify, upload.array("images"), function (req, res) {
             .catch((err) => console.error(err));
         })
         .catch((err) => console.error(err));
+    }
+  });
+});
+
+router.get("/list", verify, (req, res) => {
+  jwt.verify(req.token, process.env.SECRET, (err, tokenData) => {
+    if (err) {
+      res.sendStatus(403);
+    } else {
+      const productsCollection = client
+        .db(process.env.DB_NAME)
+        .collection(process.env.PRO_COLL);
+
+      productsCollection
+        .find({ sellerId: tokenData._id })
+        .toArray()
+        .then((docs) => {
+          if (!docs) {
+            console.error(err);
+          } else {
+            res.json({
+              products: docs,
+            });
+          }
+        });
+    }
+  });
+});
+
+router.post("/update", verify, (req, res) => {
+  jwt.verify(req.token, process.env.SECRET, (err, tokenData) => {
+    if (err) {
+      res, sendStatus(403);
+    } else {
+      // console.log(tokenData, req.body.product);
+      const productId = new ObjectId(req.body.product._id);
+      const product = { ...req.body.product, _id: productId };
+      const sellerId = tokenData._id;
+
+      const productsCollection = client
+        .db(process.env.DB_NAME)
+        .collection(process.env.PRO_COLL);
+      productsCollection
+        .findOneAndUpdate(
+          { _id: productId, sellerId },
+          { $set: product },
+          { returnOriginal: false }
+        )
+        .then((doc) => {
+          console.log(doc);
+          res.json({ product: doc.value });
+        })
+        .catch((err) => {
+          console.error(err);
+          res.sendStatus(403);
+        });
     }
   });
 });
