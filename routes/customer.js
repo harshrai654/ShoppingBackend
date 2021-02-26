@@ -65,12 +65,16 @@ router.post("/checkout", verify, (req, res) => {
         .db(process.env.DB_NAME)
         .collection(process.env.SELL_COLL);
 
+      const at = new Date();
       cart.forEach((cartItem) => {
         const orderData = {
+          orderId: new ObjectId(),
           _id: cartItem._id,
           quantity: cartItem.quantity,
-          price: cartItem.quantity,
+          price: cartItem.price,
           amount: cartItem.price * cartItem.quantity,
+          at,
+          delivered: false,
         };
         orderDataCustomer.push(orderData);
 
@@ -78,7 +82,9 @@ router.post("/checkout", verify, (req, res) => {
           .findOneAndUpdate(
             { _id: new ObjectId(cartItem.sellerId) },
             {
-              $push: { order: { ...orderData, customerId } },
+              $push: {
+                order: { ...orderData, customerId },
+              },
             }
           )
           .then((doc) => {
@@ -120,6 +126,58 @@ router.post("/checkout", verify, (req, res) => {
         })
         .catch((err) => {
           console.error(err);
+        });
+    }
+  });
+});
+
+router.get("/orders", verify, (req, res) => {
+  jwt.verify(req.token, process.env.SECRET, (err, tokenData) => {
+    if (err) {
+      res.sendStatus(403);
+    } else {
+      const customerId = new ObjectId(tokenData._id);
+      const userCollection = client
+        .db(process.env.DB_NAME)
+        .collection(process.env.USER_COLL);
+      const productCollection = client
+        .db(process.env.DB_NAME)
+        .collection(process.env.PRO_COLL);
+
+      userCollection
+        .findOne({ _id: customerId }, { projection: { _id: 0, order: 1 } })
+        .then((doc) => {
+          const orders = doc.order;
+          const orderData = [];
+          const orderPromises = [];
+          orders.forEach((order) => {
+            orderPromises.push(
+              productCollection
+                .findOne(
+                  { _id: new ObjectId(order._id) },
+                  { projection: { _id: 0, pname: 1, imgUrls: { $slice: 1 } } }
+                )
+                .then((doc) => {
+                  console.log(doc, order);
+                  orderData.push({
+                    ...doc,
+                    ...order,
+                  });
+                })
+                .catch((err) => {
+                  console.error(err);
+                  res.sendStatus(403);
+                })
+            );
+          });
+
+          Promise.all(orderPromises).then(() => {
+            res.json(orderData);
+          });
+        })
+        .catch((err) => {
+          console.error(err);
+          res.sendStatus(403);
         });
     }
   });

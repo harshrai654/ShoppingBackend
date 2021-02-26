@@ -138,6 +138,7 @@ router.post("/update", verify, (req, res) => {
       const productsCollection = client
         .db(process.env.DB_NAME)
         .collection(process.env.PRO_COLL);
+
       productsCollection
         .findOneAndUpdate(
           { _id: productId, sellerId },
@@ -150,6 +151,110 @@ router.post("/update", verify, (req, res) => {
         })
         .catch((err) => {
           console.error(err);
+          res.sendStatus(403);
+        });
+    }
+  });
+});
+
+router.get("/orders", verify, (req, res) => {
+  jwt.verify(req.token, process.env.SECRET, (err, tokenData) => {
+    if (err) {
+      res.statusCode(403);
+    } else {
+      const sellerId = new ObjectId(tokenData._id);
+      const sellerCollection = client
+        .db(process.env.DB_NAME)
+        .collection(process.env.SELL_COLL);
+      const productCollection = client
+        .db(process.env.DB_NAME)
+        .collection(process.env.PRO_COLL);
+      const userCollection = client
+        .db(process.env.DB_NAME)
+        .collection(process.env.USER_COLL);
+
+      sellerCollection
+        .findOne({ _id: sellerId }, { projection: { _id: 0, order: 1 } })
+        .then((doc) => {
+          const orders = doc.order;
+          const orderDataArray = [];
+          const orderPromises = [];
+          orders.forEach((order) => {
+            let orderData = { ...order };
+            orderPromises.push(
+              productCollection
+                .findOne(
+                  { _id: new ObjectId(order._id) },
+                  { projection: { _id: 0, pname: 1, imgUrls: { $slice: 1 } } }
+                )
+                .then((product) => {
+                  orderData = { ...orderData, ...product };
+                  return userCollection.findOne({ _id: order.customerId });
+                })
+                .then((cust) => {
+                  const { name, email } = cust;
+                  orderData = { ...orderData, name, email };
+                  orderDataArray.push(orderData);
+                })
+                .catch((err) => {
+                  console.error(err);
+                  res.sendStatus(403);
+                })
+            );
+          });
+
+          Promise.all(orderPromises).then(() => {
+            res.json(orderDataArray);
+          });
+        })
+        .catch((err) => {
+          console.error(err);
+          res.sendStatus(403);
+        });
+    }
+  });
+});
+
+router.post("/orderupdate", verify, (req, res) => {
+  jwt.verify(req.token, process.env.SECRET, (err, tokenData) => {
+    if (err) {
+      res.sendStatus(403);
+    } else {
+      let { orderId, customerId, status } = req.body;
+      orderId = new ObjectId(orderId);
+      customerId = new ObjectId(customerId);
+      const sellerId = new ObjectId(tokenData._id);
+
+      const sellerCollection = client
+        .db(process.env.DB_NAME)
+        .collection(process.env.SELL_COLL);
+
+      const userCollection = client
+        .db(process.env.DB_NAME)
+        .collection(process.env.USER_COLL);
+
+      let statusArray = [];
+
+      statusArray.push(
+        sellerCollection.findOneAndUpdate(
+          { _id: sellerId, order: { $elemMatch: { orderId } } },
+          { $set: { "order.$.delivered": status } }
+        )
+      );
+
+      statusArray.push(
+        userCollection.findOneAndUpdate(
+          { _id: customerId, order: { $elemMatch: { orderId } } },
+          { $set: { "order.$.delivered": status } }
+        )
+      );
+
+      Promise.all(statusArray)
+        .then(() => {
+          res.sendStatus(200);
+        })
+        .catch((err) => {
+          console.log(err);
           res.sendStatus(403);
         });
     }

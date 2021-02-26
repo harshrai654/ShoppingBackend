@@ -33,6 +33,8 @@ router.post("/login", function (req, res) {
       .then((dbData) => {
         if (dbData) {
           let newCart = dbData.cart;
+          const uname = dbData.name;
+          console;
           const payload = {
             name: dbData.name,
             email: dbData.email,
@@ -60,7 +62,9 @@ router.post("/login", function (req, res) {
                         console.log(`${payload._id} Logged in`);
                         res.json({
                           token,
+                          uname,
                           cart: mergedCart,
+                          order: dbData.order,
                         });
                       }
                     }
