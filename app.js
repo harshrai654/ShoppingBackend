@@ -7,6 +7,7 @@ const authRouter = require("./routes/auth");
 const sellerRouter = require("./routes/seller");
 const apiRouter = require("./routes/api");
 const customerRouter = require("./routes/customer");
+const registerRouter = require("./routes/register");
 const app = express();
 const port = process.env.PORT || 3001;
 const client = require("./initDB");
@@ -33,6 +34,7 @@ app.use("/auth", authRouter);
 app.use("/seller", sellerRouter);
 app.use("/api", apiRouter);
 app.use("/customer", customerRouter);
+app.use("/register", registerRouter);
 
 //Server start
 app.listen(port, () => {
