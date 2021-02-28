@@ -21,4 +21,14 @@ router.get("/products", function (req, res) {
     });
 });
 
+router.get("/categories", (req, res) => {
+  const productsCollection = client
+    .db(process.env.DB_NAME)
+    .collection(process.env.PRO_COLL);
+
+  productsCollection.distinct("category").then((doc) => {
+    res.json({ cats: doc });
+  });
+});
+
 module.exports = router;

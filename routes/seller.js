@@ -20,6 +20,7 @@ const createProductData = (productData, sellerData, urls) => {
   return {
     pname: productData.pname,
     desc: productData.desc,
+    category: productData.category,
     price: parseFloat(productData.price),
     quantity: parseInt(productData.quantity),
     sellerId: sellerData._id,
