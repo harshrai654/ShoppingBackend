@@ -3,34 +3,25 @@ const router = express.Router();
 const client = require("../initDB");
 const jwt = require("jsonwebtoken");
 const ObjectId = require("mongodb").ObjectId;
+const utils = require("../utils");
 
-const verify = (req, res, next) => {
-  const bearerHeader = req.headers["authorization"];
-  if (bearerHeader) {
-    const bearer = bearerHeader.split(" ");
-    const bearerToken = bearer[1];
-    req.token = bearerToken;
-    next();
-  } else {
-    res.sendStatus(403);
-  }
-};
-
-router.post("/cart", verify, function (req, res) {
-  console.log("cart update");
+//for handling cart updates -{quantity change ,delete,add}
+router.post("/cart", utils.verify, function (req, res) {
+  //verifying token with private key
   jwt.verify(req.token, process.env.SECRET, (err, tokenData) => {
     if (err) {
+      //Forbidden if token is invalid
       res.sendStatus(403);
     } else {
-      console.log(req.body, tokenData);
       const userCollection = client
         .db(process.env.DB_NAME)
         .collection(process.env.USER_COLL);
+
       const user = tokenData;
-      const cart = req.body.cart;
+      const cart = req.body.cart; //fetching updated cart from request
       userCollection.findOneAndUpdate(
         { _id: new ObjectId(user._id) },
-        { $set: { cart: cart } },
+        { $set: { cart: cart } }, //setting cart to new cart
         (err, doc) => {
           if (err) {
             console.error(err);
@@ -45,14 +36,22 @@ router.post("/cart", verify, function (req, res) {
   });
 });
 
-router.post("/checkout", verify, (req, res) => {
+//checkout handler
+/**Checkout needs to update all three collection
+ * Product -> to update qunatity
+ * Seller -> to add new order to orders array
+ * Customer -> to flush cart and and the order to orders array
+ */
+router.post("/checkout", utils.verify, (req, res) => {
   jwt.verify(req.token, process.env.SECRET, (err, tokenData) => {
     if (err) {
       res.sendStatus(403);
     } else {
       const customerId = new ObjectId(tokenData._id);
       let orderDataCustomer = [];
-      const cart = req.body.cart;
+      const cart = req.body.cart; //getting cart from request
+
+      //Getting all three collections
       const productCollection = client
         .db(process.env.DB_NAME)
         .collection(process.env.PRO_COLL);
@@ -65,10 +64,12 @@ router.post("/checkout", verify, (req, res) => {
         .db(process.env.DB_NAME)
         .collection(process.env.SELL_COLL);
 
+      //Adding date to order items
       const at = new Date();
+
       cart.forEach((cartItem) => {
         const orderData = {
-          orderId: new ObjectId(),
+          orderId: new ObjectId(), //Adding a unique orderid for each order
           _id: cartItem._id,
           quantity: cartItem.quantity,
           price: cartItem.price,
@@ -76,14 +77,15 @@ router.post("/checkout", verify, (req, res) => {
           at,
           delivered: false,
         };
-        orderDataCustomer.push(orderData);
+        orderDataCustomer.push(orderData); //pushing order item to order's array
 
+        //Adding orders to seller's collection
         sellerCollection
           .findOneAndUpdate(
             { _id: new ObjectId(cartItem.sellerId) },
             {
               $push: {
-                order: { ...orderData, customerId },
+                order: { ...orderData, customerId }, //adding customer's id to orders
               },
             }
           )
@@ -92,6 +94,7 @@ router.post("/checkout", verify, (req, res) => {
             console.log(`Seller ${seller._id} got order`);
           });
 
+        //Updating product's quantitiy using $inc operator of mongo
         productCollection
           .findOneAndUpdate(
             { _id: new ObjectId(cartItem._id) },
@@ -107,6 +110,7 @@ router.post("/checkout", verify, (req, res) => {
           });
       });
 
+      //Adding orders to user's collection
       userCollection
         .findOneAndUpdate(
           { _id: customerId },
@@ -118,6 +122,8 @@ router.post("/checkout", verify, (req, res) => {
         )
         .then((doc) => {
           const user = doc.value;
+
+          //Sending order data and cart as  reponse
           res.json({
             orders: user.order,
             cart: { items: user.cart, order: { amount: 0 } },
@@ -131,15 +137,19 @@ router.post("/checkout", verify, (req, res) => {
   });
 });
 
-router.get("/orders", verify, (req, res) => {
+//Handler to send previous orders
+router.get("/orders", utils.verify, (req, res) => {
   jwt.verify(req.token, process.env.SECRET, (err, tokenData) => {
     if (err) {
       res.sendStatus(403);
     } else {
+      //Token from request
       const customerId = new ObjectId(tokenData._id);
       const userCollection = client
         .db(process.env.DB_NAME)
         .collection(process.env.USER_COLL);
+
+      //Order array of user containes product id which can be used to get more details about the product
       const productCollection = client
         .db(process.env.DB_NAME)
         .collection(process.env.PRO_COLL);
@@ -147,10 +157,14 @@ router.get("/orders", verify, (req, res) => {
       userCollection
         .findOne({ _id: customerId }, { projection: { _id: 0, order: 1 } })
         .then((doc) => {
+          //Svaed orders
           const orders = doc.order;
           const orderData = [];
+
+          //Promise array to save all pending promises of each product data retrieval
           const orderPromises = [];
           orders.forEach((order) => {
+            //Pushing each promise
             orderPromises.push(
               productCollection
                 .findOne(
@@ -171,6 +185,8 @@ router.get("/orders", verify, (req, res) => {
             );
           });
 
+          //Sending Product data associated with user's order array
+          // after getting all products data from DB
           Promise.all(orderPromises).then(() => {
             res.json(orderData);
           });

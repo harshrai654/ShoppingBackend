@@ -4,13 +4,17 @@ const client = require("../initDB");
 const jwt = require("jsonwebtoken");
 
 router.post("/", (req, res) => {
+  //Getting form data
   const { role, name, email, pass } = req.body.values;
+
+  //Getting collection with respect to customer or seller
   const collName = role ? process.env.SELL_COLL : process.env.USER_COLL;
   const doc = role
     ? { name, email, pass, order: [] }
     : { name, email, pass, order: [], cart: {} };
   const collection = client.db(process.env.DB_NAME).collection(collName);
 
+  //Adding new document with upsert option and uniqueness of email
   collection
     .findOneAndUpdate(
       { email },
@@ -18,12 +22,13 @@ router.post("/", (req, res) => {
       { upsert: true, returnOriginal: false }
     )
     .then((doc) => {
-      //   console.log(doc);
+      //If email is uniuque
       if (!doc.lastErrorObject.updatedExisting) {
         const dbData = doc.value;
         const id = dbData._id;
         console.log(`${id} created account`);
 
+        //Creating token and initiating login action
         const payload = {
           name: dbData.name,
           email: dbData.email,
@@ -41,8 +46,8 @@ router.post("/", (req, res) => {
               res.json({
                 token,
                 name: dbData.name,
-                cart: dbData.cart,
-                order: dbData.order,
+                cart: [], //Initial empty cart
+                order: dbData.order, //Initial empty object
                 type: role,
               });
             }

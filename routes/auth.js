@@ -1,9 +1,12 @@
+//Route for handling login of customer and seller
+
 const express = require("express");
 const router = express.Router();
 const client = require("../initDB");
 const jwt = require("jsonwebtoken");
 const utils = require("../utils");
 
+//An auth handler to only verify token
 router.post("/", (req, res) => {
   const { token } = req.body;
 
@@ -18,7 +21,7 @@ router.post("/", (req, res) => {
 });
 
 router.post("/login", function (req, res) {
-  const { email, pass, cart } = req.body;
+  const { email, pass, cart } = req.body; //getting user details from requests
 
   if (email && pass) {
     const userCollection = client
@@ -32,16 +35,21 @@ router.post("/login", function (req, res) {
       .findOne({ email, pass })
       .then((dbData) => {
         if (dbData) {
-          let newCart = dbData.cart;
+          let newCart = dbData.cart; //previous saved user cart
           const uname = dbData.name;
-          console;
+
+          //data for token
           const payload = {
             name: dbData.name,
             email: dbData.email,
-            _id: dbData._id,
+            _id: dbData._id, //will be considered as customer id
           };
 
+          //A utility function to merge current cart from the request and previous cart from the DB
+          //utils.mergeCart is a Asynchronous function
           utils.mergeCart(newCart, cart).then(({ mergedCart, dbMergeCart }) => {
+            //getting mergedCart aaray to be sent as response
+            //dbMergeCart is cart array to be saved in DB
             //Updating cart
             userCollection.updateOne(
               { _id: dbData._id },
@@ -52,6 +60,7 @@ router.post("/login", function (req, res) {
                   res.sendStatus(500);
                 } else {
                   //Creating token
+
                   jwt.sign(
                     payload,
                     secretKey,
@@ -60,6 +69,8 @@ router.post("/login", function (req, res) {
                       if (err) res.sendStatus(500);
                       else {
                         console.log(`${payload._id} Logged in`);
+
+                        //sending created token cart, user-name and previous orders
                         res.json({
                           token,
                           uname,
@@ -80,6 +91,7 @@ router.post("/login", function (req, res) {
       })
       .catch((err) => {
         console.error(err);
+        res.sendStatus(403);
       });
   }
 });
@@ -122,6 +134,7 @@ router.post("/sellerlogin", function (req, res) {
       })
       .catch((err) => {
         console.error(err);
+        res.sendStatus(403);
       });
   }
 });
